@@ -53,7 +53,7 @@ public final class JavaTypeDefiner extends TypeDefiner<TypeSpec> {
 
     @Override
     public TypeName defineJavaType(Schema<?> schema, OpenAPI openAPI, TypeSpec.Builder parent,
-                                   String typeNameFallback) {
+                                   String typeNameFallback, Map<String, SchemaComponentDescriptor> componentTree) {
         @SuppressWarnings("LocalVariableName")
         String $ref = schema.get$ref();
         if ($ref == null) {
@@ -98,12 +98,13 @@ public final class JavaTypeDefiner extends TypeDefiner<TypeSpec> {
                     Schema<?> itemsSchema = schema.getItems();
                     return ParameterizedTypeName.get(ClassName.get(List.class),
                             defineJavaType(itemsSchema, openAPI, parent,
-                                    typeNameFallback == null ? null : typeNameFallback + "Item"));
+                                    typeNameFallback == null ? null : typeNameFallback + "Item", componentTree));
                 case "object":
                 default:
                     String simpleName = schema.getTitle() == null ? typeNameFallback : schema.getTitle();
                     if (simpleName != null) {
-                        typeSpecBiConsumer.accept(ClassCategory.DTO, getDTO(simpleName, schema, openAPI));
+                        typeSpecBiConsumer.accept(ClassCategory.DTO,
+                                getDTO(simpleName, schema, openAPI, componentTree));
                         return ClassName.get(String.join(".", params.getRootPackage(), "dto"),
                                 simpleName);
                     } else {
@@ -188,7 +189,10 @@ public final class JavaTypeDefiner extends TypeDefiner<TypeSpec> {
     }
 
     @Override
-    TypeSpec getDTOClass(String name, Schema<?> schema, OpenAPI openAPI) {
+    TypeSpec getDTOClass(String name,
+                         Schema<?> schema,
+                         OpenAPI openAPI,
+                         Map<String, SchemaComponentDescriptor> componentTree) {
         if (schema instanceof ComposedSchema && schema.getOneOf() == null) {
             ClassName baseClass = ClassName.get(Object.class);
             Schema<?> currentSchema = schema;
@@ -199,13 +203,17 @@ public final class JavaTypeDefiner extends TypeDefiner<TypeSpec> {
                     currentSchema = s;
                 }
             }
-            return getDTOClass(name, currentSchema, openAPI, baseClass);
+            return getDTOClass(name, currentSchema, openAPI, baseClass, componentTree);
         } else {
-            return getDTOClass(name, schema, openAPI, ClassName.get(Object.class));
+            return getDTOClass(name, schema, openAPI, ClassName.get(Object.class), componentTree);
         }
     }
 
-    private TypeSpec getDTOClass(String name, Schema<?> schema, OpenAPI openAPI, ClassName baseClass) {
+    private TypeSpec getDTOClass(String name,
+                                 Schema<?> schema,
+                                 OpenAPI openAPI,
+                                 ClassName baseClass,
+                                 Map<String, SchemaComponentDescriptor> componentTree) {
         TypeSpec.Builder classBuilder;
         if (schema.getOneOf() != null && !schema.getOneOf().isEmpty()) {
             classBuilder = TypeSpec.interfaceBuilder(name);
@@ -258,7 +266,7 @@ public final class JavaTypeDefiner extends TypeDefiner<TypeSpec> {
                     continue;
                 }
                 TypeName typeName = defineJavaType(entry.getValue(), openAPI, classBuilder,
-                        CaseUtils.snakeToCamel(entry.getKey(), true));
+                        CaseUtils.snakeToCamel(entry.getKey(), true), componentTree);
 
                 String propertyName =
                         params.isForceSnakeCaseForProperties()
@@ -289,7 +297,7 @@ public final class JavaTypeDefiner extends TypeDefiner<TypeSpec> {
             TypeName valueTypeName;
             if (additionalProperties instanceof Schema<?>) {
                 valueTypeName = defineJavaType((Schema<?>) additionalProperties,
-                        openAPI, classBuilder, null).box();
+                        openAPI, classBuilder, null, componentTree).box();
             } else {
                 valueTypeName = TypeName.get(String.class);
             }

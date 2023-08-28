@@ -42,21 +42,27 @@ public abstract class APIExtractor<T, B> implements TypeSpecExtractor<T> {
         return builders.computeIfAbsent(className, k -> builderSupplier.apply(className));
     }
 
-    public final void extractTypeSpecs(OpenAPI openAPI, BiConsumer<ClassCategory, T> typeSpecBiConsumer) {
+    public final void extractTypeSpecs(OpenAPI openAPI,
+                                       BiConsumer<ClassCategory, T> typeSpecBiConsumer,
+                                       Map<String, SchemaComponentDescriptor> componentTree) {
         Paths paths = openAPI.getPaths();
         if (paths == null) return;
-        generateClass(openAPI, paths, "Controller", params.isGenerateResponseParameter());
+        generateClass(openAPI, paths, "Controller", params.isGenerateResponseParameter(), componentTree);
         builders.values().stream().map(buildInvoker).forEach(t ->
                 typeSpecBiConsumer.accept(ClassCategory.CONTROLLER, t));
         if (params.isGenerateApiInterface()) {
             builders.clear();
-            generateClass(openAPI, paths, "Api", false);
+            generateClass(openAPI, paths, "Api", false, componentTree);
             builders.values().stream().map(buildInvoker).forEach(t ->
                     typeSpecBiConsumer.accept(ClassCategory.CONTROLLER, t));
         }
     }
 
-    private void generateClass(OpenAPI openAPI, Paths paths, String name, boolean responseParameter) {
+    private void generateClass(OpenAPI openAPI,
+                               Paths paths,
+                               String name,
+                               boolean responseParameter,
+                               Map<String, SchemaComponentDescriptor> componentTree) {
         for (Map.Entry<String, PathItem> stringPathItemEntry : paths.entrySet()) {
             for (Map.Entry<PathItem.HttpMethod, Operation> operationEntry
                     : stringPathItemEntry.getValue().readOperationsMap().entrySet()) {
@@ -69,7 +75,7 @@ public abstract class APIExtractor<T, B> implements TypeSpecExtractor<T> {
                             + CaseUtils.snakeToCamel(operationEntry.getKey().name().toLowerCase(), true);
                 }
                 buildMethod(openAPI, builder(typeName), stringPathItemEntry,
-                        operationEntry, operationId, responseParameter);
+                        operationEntry, operationId, responseParameter, componentTree);
             }
         }
     }
@@ -79,7 +85,7 @@ public abstract class APIExtractor<T, B> implements TypeSpecExtractor<T> {
                               Map.Entry<String, PathItem> stringPathItemEntry,
                               Map.Entry<PathItem.HttpMethod, Operation> operationEntry,
                               String operationId,
-                              boolean generateResponseParameter);
+                              boolean generateResponseParameter, Map<String, SchemaComponentDescriptor> componentTree);
 
     static Optional<Content> getSuccessfulReply(Operation operation) {
         return operation.getResponses().entrySet().stream()

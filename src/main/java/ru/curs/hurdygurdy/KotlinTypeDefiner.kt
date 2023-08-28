@@ -54,8 +54,11 @@ class KotlinTypeDefiner internal constructor(
     private var hasJsonZonedDateTimeDeserializer = false
 
     public override fun defineKotlinType(
-        schema: Schema<*>, openAPI: OpenAPI,
-        parent: TypeSpec.Builder, typeNameFallback: String?
+        schema: Schema<*>,
+        openAPI: OpenAPI,
+        parent: TypeSpec.Builder,
+        typeNameFallback: String?,
+        componentTree: Map<String, SchemaComponentDescriptor>
     ): TypeName {
         val `$ref` = schema.`$ref`
         val result = if (`$ref` == null) {
@@ -89,7 +92,7 @@ class KotlinTypeDefiner internal constructor(
                 "array" -> {
                     val itemsSchema: Schema<*> = (schema as ArraySchema).items
                     List::class.asTypeName().parameterizedBy(
-                        defineKotlinType(itemsSchema, openAPI, parent, typeNameFallback?.plus("Item"))
+                        defineKotlinType(itemsSchema, openAPI, parent, typeNameFallback?.plus("Item"), componentTree)
                             .copy(nullable = (itemsSchema.nullable ?: false))
                     )
                 }
@@ -97,7 +100,7 @@ class KotlinTypeDefiner internal constructor(
                 "object" -> {
                     val simpleName = schema.title
                     if (simpleName != null) {
-                        typeSpecBiConsumer.accept(ClassCategory.DTO, getDTO(simpleName, schema, openAPI))
+                        typeSpecBiConsumer.accept(ClassCategory.DTO, getDTO(simpleName, schema, openAPI, componentTree))
                         ClassName(
                             java.lang.String.join(".", params.rootPackage, "dto"),
                             simpleName
@@ -111,7 +114,7 @@ class KotlinTypeDefiner internal constructor(
                 else -> {
                     val simpleName = schema.title
                     if (simpleName != null) {
-                        typeSpecBiConsumer.accept(ClassCategory.DTO, getDTO(simpleName, schema, openAPI))
+                        typeSpecBiConsumer.accept(ClassCategory.DTO, getDTO(simpleName, schema, openAPI, componentTree))
                         ClassName(
                             java.lang.String.join(".", params.rootPackage, "dto"),
                             simpleName
@@ -143,7 +146,12 @@ class KotlinTypeDefiner internal constructor(
         return classBuilder.build()
     }
 
-    override fun getDTOClass(name: String, schema: Schema<*>, openAPI: OpenAPI): TypeSpec {
+    override fun getDTOClass(
+        name: String,
+        schema: Schema<*>,
+        openAPI: OpenAPI,
+        componentTree: MutableMap<String, SchemaComponentDescriptor>
+    ): TypeSpec {
         return if (schema is ComposedSchema && schema.oneOf == null) {
             var baseClass: TypeName = Any::class.asClassName()
             var currentSchema = schema
@@ -154,13 +162,19 @@ class KotlinTypeDefiner internal constructor(
                     currentSchema = s
                 }
             }
-            getDTOClass(name, currentSchema, openAPI, baseClass)
+            getDTOClass(name, currentSchema, openAPI, baseClass, componentTree)
         } else {
-            getDTOClass(name, schema, openAPI, Any::class.asClassName())
+            getDTOClass(name, schema, openAPI, Any::class.asClassName(), componentTree)
         }
     }
 
-    private fun getDTOClass(name: String, schema: Schema<*>, openAPI: OpenAPI, baseClass: TypeName): TypeSpec {
+    private fun getDTOClass(
+        name: String,
+        schema: Schema<*>,
+        openAPI: OpenAPI,
+        baseClass: TypeName,
+        componentTree: Map<String, SchemaComponentDescriptor>
+    ): TypeSpec {
         // Define if any schema references to us as "allOf"
         val isParent = openAPI.components.schemas.any { (_, schema) ->
             schema.allOf?.any { it.`$ref`?.endsWith(name) ?: false } ?: false
@@ -205,7 +219,7 @@ class KotlinTypeDefiner internal constructor(
         }
         //Intermediate class, can't be data, should be open
         if (isParent && !classBuilder.modifiers.contains(KModifier.SEALED)) {
-            classBuilder.addModifiers(KModifier.OPEN)
+            classBuilder.addModifiers(KModifier.SEALED)
             classBuilder.modifiers.remove(KModifier.DATA)
         }
 
@@ -243,7 +257,8 @@ class KotlinTypeDefiner internal constructor(
                 }
                 val typeName = defineKotlinType(
                     value, openAPI, classBuilder,
-                    CaseUtils.snakeToCamel(key, true)
+                    CaseUtils.snakeToCamel(key, true),
+                    componentTree
                 )
 
                 val propertyName =
@@ -294,7 +309,12 @@ class KotlinTypeDefiner internal constructor(
                 val propertySpec = PropertySpec
                     .builder(propertyName, typeName)
                     // If we're parent children can override even types!
-                    .addModifiers(listOfNotNull(KModifier.OPEN.takeIf { isParent }))
+                    .addModifiers(listOfNotNull(
+                        KModifier.OPEN.takeIf { isParent },
+                        KModifier.OVERRIDE.takeIf {
+                            componentTree[name]?.ancestorsHaveProperty(propertyName) ?: false
+                        }
+                    ))
                     .initializer(propertyName).build()
                 classBuilder.addProperty(propertySpec)
             }
@@ -304,7 +324,7 @@ class KotlinTypeDefiner internal constructor(
                 val additionalProperties = schema.additionalProperties
                 val valueTypeName = if (additionalProperties is Schema<*>) {
                     defineKotlinType(
-                        additionalProperties, openAPI, classBuilder, null
+                        additionalProperties, openAPI, classBuilder, null, componentTree
                     )
                 } else {
                     String::class.asTypeName()
@@ -335,6 +355,12 @@ class KotlinTypeDefiner internal constructor(
         }
         return classBuilder.build()
     }
+
+    private fun SchemaComponentDescriptor.ancestorsHaveProperty(propertyName: String): Boolean =
+        baseSchemas?.any { it.hasProperty(propertyName) } ?: false
+
+    private fun SchemaComponentDescriptor.hasProperty(propertyName: String): Boolean =
+        properties.contains(propertyName) || baseSchemas.any { it.hasProperty(propertyName) }
 
     private fun oneOfToInterface(schema: Schema<*>, openAPI: OpenAPI, classBuilder: TypeSpec.Builder) {
         if (schema.oneOf != null) {

@@ -36,18 +36,19 @@ class KotlinAPIExtractor(
         stringPathItemEntry: Map.Entry<String, PathItem>,
         operationEntry: Map.Entry<PathItem.HttpMethod, Operation>,
         operationId: String,
-        generateResponseParameter: Boolean
+        generateResponseParameter: Boolean,
+        componentTree: Map<String, SchemaComponentDescriptor>
     ) {
         val methodBuilder = FunSpec
             .builder(operationId)
             .addModifiers(KModifier.PUBLIC, KModifier.ABSTRACT)
         getControllerMethodAnnotationSpec(operationEntry, stringPathItemEntry.key)?.let(methodBuilder::addAnnotation)
         //we are deriving the returning type from the schema of the successful result
-        methodBuilder.returns(determineReturnKotlinType(operationEntry.value, openAPI, classBuilder))
+        methodBuilder.returns(determineReturnKotlinType(operationEntry.value, openAPI, classBuilder, componentTree))
         Optional.ofNullable(operationEntry.value.requestBody)
             .map { obj: RequestBody -> obj.content }
             .stream().asSequence()
-            .flatMap { getContentType(it, openAPI, classBuilder) }
+            .flatMap { getContentType(it, openAPI, classBuilder, componentTree) }
             .forEach { paramSpec: RequestPartParams ->
                 methodBuilder.addParameter(
                     ParameterSpec.builder(
@@ -68,7 +69,7 @@ class KotlinAPIExtractor(
                 methodBuilder.addParameter(
                     ParameterSpec.builder(
                         CaseUtils.snakeToCamel(parameter.name),
-                        typeDefiner.defineKotlinType(parameter.schema, openAPI, classBuilder, null),
+                        typeDefiner.defineKotlinType(parameter.schema, openAPI, classBuilder, null, componentTree),
                     )
                         .addAnnotation(
                             AnnotationSpec.builder(PathVariable::class)
@@ -93,7 +94,7 @@ class KotlinAPIExtractor(
                 methodBuilder.addParameter(
                     ParameterSpec.builder(
                         CaseUtils.snakeToCamel(parameter.name),
-                        typeDefiner.defineKotlinType(parameter.schema, openAPI, classBuilder, null),
+                        typeDefiner.defineKotlinType(parameter.schema, openAPI, classBuilder, null, componentTree),
                     )
                         .addAnnotation(
                             annotationSpec
@@ -111,7 +112,7 @@ class KotlinAPIExtractor(
                 methodBuilder.addParameter(
                     ParameterSpec.builder(
                         CaseUtils.kebabToCamel(parameter.name),
-                        typeDefiner.defineKotlinType(parameter.schema, openAPI, classBuilder, null),
+                        typeDefiner.defineKotlinType(parameter.schema, openAPI, classBuilder, null, componentTree),
                     )
                         .addAnnotation(
                             AnnotationSpec.builder(
@@ -161,11 +162,16 @@ class KotlinAPIExtractor(
         } else null
     }
 
-    private fun determineReturnKotlinType(operation: Operation, openAPI: OpenAPI, parent: TypeSpec.Builder): TypeName =
+    private fun determineReturnKotlinType(
+        operation: Operation,
+        openAPI: OpenAPI,
+        parent: TypeSpec.Builder,
+        componentTree: Map<String, SchemaComponentDescriptor>
+    ): TypeName =
         getSuccessfulReply(operation)
             .stream().asSequence()
             .flatMap { c: Content ->
-                getContentType(c, openAPI, parent)
+                getContentType(c, openAPI, parent, componentTree)
             }
             .map { it.typeName }
             .firstOrNull() ?: UNIT
@@ -179,7 +185,8 @@ class KotlinAPIExtractor(
     private fun getContentType(
         content: Content,
         openAPI: OpenAPI,
-        parent: TypeSpec.Builder
+        parent: TypeSpec.Builder,
+        componentTree: Map<String, SchemaComponentDescriptor>
     ): Sequence<RequestPartParams> {
         val mediaTypeEntry = Optional.ofNullable(content)
             .flatMap { getMediaType(it) }
@@ -193,7 +200,7 @@ class KotlinAPIExtractor(
                     .map { (name, schema) ->
                         RequestPartParams(
                             name = name,
-                            typeName = typeDefiner.defineKotlinType(schema, openAPI, parent, null),
+                            typeName = typeDefiner.defineKotlinType(schema, openAPI, parent, null, componentTree),
                             annotation = AnnotationSpec.builder(RequestPart::class)
                                 .addMember("name = %S", name).build()
                         )
@@ -202,7 +209,7 @@ class KotlinAPIExtractor(
             } else {
                 //Single-part
                 return Optional.ofNullable(entry.value.schema).stream().asSequence()
-                    .map { typeDefiner.defineKotlinType(it, openAPI, parent, null) }
+                    .map { typeDefiner.defineKotlinType(it, openAPI, parent, null, componentTree) }
                     .map {
                         RequestPartParams(
                             name = "request",

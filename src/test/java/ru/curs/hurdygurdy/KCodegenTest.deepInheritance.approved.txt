@@ -24,8 +24,11 @@ import com.fasterxml.jackson.databind.`annotation`.JsonNaming
 @JsonSubTypes(
   JsonSubTypes.Type(value = B::class, name = "b"),
   JsonSubTypes.Type(value = C::class, name = "c"),
+  JsonSubTypes.Type(value = D::class, name = "d"),
 )
-public sealed class A()
+public sealed class A(
+  public open val `value`: B? = null,
+)
 ---
 /com/example/dto/B.kt
 package com.example.dto
@@ -34,7 +37,9 @@ import com.fasterxml.jackson.databind.PropertyNamingStrategies
 import com.fasterxml.jackson.databind.`annotation`.JsonNaming
 
 @JsonNaming(value = PropertyNamingStrategies.SnakeCaseStrategy::class)
-public open class B : A()
+public sealed class B(
+  open override val `value`: C? = null,
+) : A()
 ---
 /com/example/dto/C.kt
 package com.example.dto
@@ -43,4 +48,15 @@ import com.fasterxml.jackson.databind.PropertyNamingStrategies
 import com.fasterxml.jackson.databind.`annotation`.JsonNaming
 
 @JsonNaming(value = PropertyNamingStrategies.SnakeCaseStrategy::class)
-public object C : B()
+public sealed class C(
+  open override val `value`: D? = null,
+) : B()
+---
+/com/example/dto/D.kt
+package com.example.dto
+
+import com.fasterxml.jackson.databind.PropertyNamingStrategies
+import com.fasterxml.jackson.databind.`annotation`.JsonNaming
+
+@JsonNaming(value = PropertyNamingStrategies.SnakeCaseStrategy::class)
+public object D : C()

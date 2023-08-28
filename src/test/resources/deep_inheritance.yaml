@@ -15,17 +15,30 @@ components:
       properties:
         type:
           type: string
+        value:
+          $ref: '#/components/schemas/B'
       discriminator:
         propertyName: type
         mapping:
           'b': '#/components/schemas/B'
           'c': '#/components/schemas/C'
+          'd': '#/components/schemas/D'
     B:
       description: B
       allOf:
         - $ref: "#/components/schemas/A"
+      properties:
+        value:
+          $ref: '#/components/schemas/C'
 
     C:
       description: C
       allOf:
         - $ref: "#/components/schemas/B"
+      properties:
+        value:
+          $ref: '#/components/schemas/D'
+    D:
+      description: C
+      allOf:
+        - $ref: "#/components/schemas/C"

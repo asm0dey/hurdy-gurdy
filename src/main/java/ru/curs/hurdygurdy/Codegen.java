@@ -2,16 +2,17 @@ package ru.curs.hurdygurdy;
 
 import io.swagger.parser.OpenAPIParser;
 import io.swagger.v3.oas.models.OpenAPI;
+import io.swagger.v3.oas.models.media.ObjectSchema;
+import io.swagger.v3.oas.models.media.Schema;
 import io.swagger.v3.parser.core.models.ParseOptions;
 import io.swagger.v3.parser.core.models.SwaggerParseResult;
+import lombok.val;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.EnumMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.stream.Collectors;
 
 
 public abstract class Codegen<T> {
@@ -29,7 +30,8 @@ public abstract class Codegen<T> {
         typeSpecExtractors = typeProducersFactory.typeSpecExtractors(typeDefiner);
     }
 
-    private void parse(Path sourceFile) throws IOException {
+
+    private Map<String, SchemaComponentDescriptor> parse(Path sourceFile) throws IOException {
         if (!Files.isReadable(sourceFile)) throw new IllegalArgumentException(
                 String.format("File %s is not readable", sourceFile));
         ParseOptions parseOptions = new ParseOptions();
@@ -39,16 +41,62 @@ public abstract class Codegen<T> {
         if (openAPI == null) {
             throw new IllegalArgumentException(String.join(String.format("%n"), result.getMessages()));
         }
+        return builtComponentsTree();
+    }
+
+    private Map<String, SchemaComponentDescriptor> builtComponentsTree() {
+        Map<String, SchemaComponentDescriptor> nodes = new HashMap<>();
+        if (openAPI.getComponents()==null) return Collections.emptyMap();
+        var schemas = openAPI.getComponents().getSchemas();
+        // First pass: create nodes for each schema
+        //noinspection rawtypes
+        for (Map.Entry<String, Schema> entry : schemas.entrySet()) {
+            val properties = entry.getValue().getProperties();
+            //noinspection unchecked
+            val sourceProps = properties == null ? new HashSet<String>() : new HashSet<String>(properties.keySet());
+            //noinspection unchecked,rawtypes
+            val props = (entry.getValue() == null || entry.getValue().getAllOf() == null)
+                    ? null
+                    : ((List<Schema>) entry.getValue().getAllOf())
+                    .stream()
+                    .filter(schema -> schema instanceof ObjectSchema)
+                    .map(schema -> ((ObjectSchema) schema).getProperties())
+                    .filter(Objects::nonNull)
+                    .flatMap(x -> x.keySet().stream())
+                    .collect(Collectors.toSet());
+            if (props != null) {
+                sourceProps.addAll(props);
+            }
+
+            nodes.put(entry.getKey(), new SchemaComponentDescriptor(entry.getKey(), sourceProps));
+        }
+
+        // Second pass: add inheritance relationships
+        for (var entry : schemas.entrySet()) {
+            var schema = entry.getValue();
+            if (schema.getAllOf() != null) {
+                for (var subSchema : schema.getAllOf()) {
+                    Schema<?> subSchema1 = (Schema<?>) subSchema;
+                    if (subSchema1.get$ref() != null) {
+                        String reference = subSchema1.get$ref();
+                        // Reference is in format "#/components/schemas/BaseComponent"
+                        String baseSchemaName = reference.split("/")[3];
+                        nodes.get(entry.getKey()).addBaseSchema(nodes.get(baseSchemaName));
+                    }
+                }
+            }
+        }
+        return nodes;
     }
 
     public void generate(Path sourceFile, Path resultDirectory) throws IOException {
-        parse(sourceFile);
+        val componentTree = parse(sourceFile);
 
         if (!Files.isDirectory(resultDirectory)) throw new IllegalArgumentException(
                 String.format("File %s is not a directory", resultDirectory));
 
         typeDefiner.init(sourceFile);
-        typeSpecExtractors.forEach(e -> e.extractTypeSpecs(openAPI, this::addTypeSpec));
+        typeSpecExtractors.forEach(e -> e.extractTypeSpecs(openAPI, this::addTypeSpec, componentTree));
         generate(resultDirectory);
     }
 

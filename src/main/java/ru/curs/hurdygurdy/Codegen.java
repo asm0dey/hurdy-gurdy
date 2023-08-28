@@ -11,7 +11,14 @@ import lombok.val;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.EnumMap;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 
@@ -46,7 +53,7 @@ public abstract class Codegen<T> {
 
     private Map<String, SchemaComponentDescriptor> builtComponentsTree() {
         Map<String, SchemaComponentDescriptor> nodes = new HashMap<>();
-        if (openAPI.getComponents()==null) return Collections.emptyMap();
+        if (openAPI.getComponents() == null) return Collections.emptyMap();
         var schemas = openAPI.getComponents().getSchemas();
         // First pass: create nodes for each schema
         //noinspection rawtypes

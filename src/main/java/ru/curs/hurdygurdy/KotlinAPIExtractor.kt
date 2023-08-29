@@ -1,12 +1,6 @@
 package ru.curs.hurdygurdy
 
-import com.squareup.kotlinpoet.AnnotationSpec
-import com.squareup.kotlinpoet.FunSpec
-import com.squareup.kotlinpoet.KModifier
-import com.squareup.kotlinpoet.ParameterSpec
-import com.squareup.kotlinpoet.TypeName
-import com.squareup.kotlinpoet.TypeSpec
-import com.squareup.kotlinpoet.UNIT
+import com.squareup.kotlinpoet.*
 import io.swagger.v3.oas.models.OpenAPI
 import io.swagger.v3.oas.models.Operation
 import io.swagger.v3.oas.models.PathItem
@@ -91,11 +85,25 @@ class KotlinAPIExtractor(
                     .addMember("name = %S", parameter.name)
                 parameter.schema?.default?.let { builder.addMember("defaultValue = %S", it.toString()) }
                 val annotationSpec = builder.build()
-                methodBuilder.addParameter(
-                    ParameterSpec.builder(
-                        CaseUtils.snakeToCamel(parameter.name),
-                        typeDefiner.defineKotlinType(parameter.schema, openAPI, classBuilder, null, componentTree),
+                val typeName =
+                    typeDefiner.defineKotlinType(
+                        parameter.schema,
+                        openAPI,
+                        classBuilder,
+                        null,
+                        componentTree
                     )
+                methodBuilder.addParameter(
+                    ParameterSpec.builder(CaseUtils.snakeToCamel(parameter.name), typeName)
+                        .apply {
+                            if (parameter.required == false) defaultValue("%L", null)
+                            parameter.schema?.default?.let {
+                                defaultValue(
+                                    if (typeName.copy(nullable = false) == String::class.asTypeName()) "%S" else "%L",
+                                    it.toString()
+                                )
+                            }
+                        }
                         .addAnnotation(
                             annotationSpec
                         ).build()

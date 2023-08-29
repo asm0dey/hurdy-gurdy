@@ -25,7 +25,7 @@ public interface Controller {
   public fun adminCustomFieldSettingsBundlesBuildIdValuesBuildBundleElementIdGet(
     @PathVariable(name = "id") id: String?,
     @PathVariable(name = "buildBundleElementId") buildBundleElementId: String?,
-    @RequestParam(required = false, name = "fields") fields: String?,
+    @RequestParam(required = false, name = "fields") fields: String? = null,
     response: HttpServletResponse,
   ): BuildBundleElement?
 }

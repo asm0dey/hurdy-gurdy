@@ -40,7 +40,7 @@ public interface Controller {
   )
   public fun affiliatePlayerActivitiesCSV(
     @PathVariable(name = "id") id: Int?,
-    @RequestParam(required = false, name = "status") status: Boolean?,
+    @RequestParam(required = false, name = "status") status: Boolean? = null,
     response: HttpServletResponse,
   ): String?
 
@@ -49,7 +49,7 @@ public interface Controller {
     produces = ["application/json"],
   )
   public fun getBills(@RequestParam(required = false, name = "affiliate_id", defaultValue = "42")
-      affiliateId: Int?, response: HttpServletResponse): Int?
+      affiliateId: Int? = 42, response: HttpServletResponse): Int?
 
   @PutMapping(
     value = ["/api/v1/external"],

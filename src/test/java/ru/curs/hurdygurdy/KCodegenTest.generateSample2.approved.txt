@@ -38,7 +38,7 @@ public interface Controller {
   )
   public fun hello(
     @PathVariable(name = "id") id: Int?,
-    @RequestParam(required = false, name = "foo") foo: String?,
+    @RequestParam(required = false, name = "foo") foo: String? = null,
     @RequestParam(required = true, name = "bar") bar: Int?,
     @RequestHeader(required = true, name = "baz") baz: String?,
     response: HttpServletResponse,

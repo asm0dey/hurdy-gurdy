@@ -297,10 +297,8 @@ class KotlinTypeDefiner internal constructor(
                             default.toString()
                         )
                     }
-                } else {
-                    if (typeName.isNullable) {
-                        paramSpec.defaultValue("null")
-                    }
+                } else if (typeName.isNullable) {
+                    paramSpec.defaultValue("null")
                 }
 
                 val param = paramSpec.build()

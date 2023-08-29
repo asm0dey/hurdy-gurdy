@@ -38,14 +38,14 @@ public interface Api {
     produces = ["text/csv"],
   )
   public fun affiliatePlayerActivitiesCSV(@PathVariable(name = "id") id: Int?,
-      @RequestParam(required = false, name = "status") status: Boolean?): String?
+      @RequestParam(required = false, name = "status") status: Boolean? = null): String?
 
   @GetMapping(
     value = ["/api/v1/bills"],
     produces = ["application/json"],
   )
   public fun getBills(@RequestParam(required = false, name = "affiliate_id", defaultValue = "42")
-      affiliateId: Int?): Int?
+      affiliateId: Int? = 42): Int?
 
   @PutMapping(
     value = ["/api/v1/external"],
@@ -91,14 +91,14 @@ public interface Controller {
     produces = ["text/csv"],
   )
   public fun affiliatePlayerActivitiesCSV(@PathVariable(name = "id") id: Int?,
-      @RequestParam(required = false, name = "status") status: Boolean?): String?
+      @RequestParam(required = false, name = "status") status: Boolean? = null): String?
 
   @GetMapping(
     value = ["/api/v1/bills"],
     produces = ["application/json"],
   )
   public fun getBills(@RequestParam(required = false, name = "affiliate_id", defaultValue = "42")
-      affiliateId: Int?): Int?
+      affiliateId: Int? = 42): Int?
 
   @PutMapping(
     value = ["/api/v1/external"],

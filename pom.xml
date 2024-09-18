@@ -38,13 +38,13 @@
 
     <properties>
         <maven.compiler.plugin.version>3.13.0</maven.compiler.plugin.version>
-        <maven.jar.plugin.version>3.3.0</maven.jar.plugin.version>
-        <junit.version>5.10.3</junit.version>
+        <maven.jar.plugin.version>3.4.2</maven.jar.plugin.version>
+        <junit.version>5.11.0</junit.version>
         <maven.source.plugin.version>3.3.1</maven.source.plugin.version>
-        <maven.javadoc.plugin.version>3.8.0</maven.javadoc.plugin.version>
-        <kotlin.version>2.0.10</kotlin.version>
-        <checkstyle.maven.plugin.version>3.4.0</checkstyle.maven.plugin.version>
-        <checkstyle.version>10.17.0</checkstyle.version>
+        <maven.javadoc.plugin.version>3.10.0</maven.javadoc.plugin.version>
+        <kotlin.version>2.0.20</kotlin.version>
+        <checkstyle.maven.plugin.version>3.5.0</checkstyle.maven.plugin.version>
+        <checkstyle.version>10.18.1</checkstyle.version>
     </properties>
 
     <distributionManagement>
@@ -78,7 +78,7 @@
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-web</artifactId>
-            <version>5.3.37</version>
+            <version>5.3.39</version>
             <scope>compile</scope>
         </dependency>
         <!-- test -->
@@ -91,7 +91,7 @@
         <dependency>
             <groupId>com.approvaltests</groupId>
             <artifactId>approvaltests</artifactId>
-            <version>24.3.0</version>
+            <version>24.5.0</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -115,7 +115,7 @@
         <dependency>
             <groupId>org.apache.maven.plugin-tools</groupId>
             <artifactId>maven-plugin-annotations</artifactId>
-            <version>3.13.1</version>
+            <version>3.15.0</version>
         </dependency>
         <dependency>
             <groupId>org.apache.tomcat.embed</groupId>
@@ -141,7 +141,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-plugin-plugin</artifactId>
-                <version>3.14.0</version>
+                <version>3.15.0</version>
                 <configuration>
                     <goalPrefix>hurdy-gurdy</goalPrefix>
                 </configuration>
@@ -155,7 +155,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <version>3.4.0</version>
+                <version>3.5.0</version>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -224,7 +224,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-gpg-plugin</artifactId>
-                <version>3.2.5</version>
+                <version>3.2.6</version>
                 <executions>
                     <execution>
                         <id>sign-artifacts</id>
